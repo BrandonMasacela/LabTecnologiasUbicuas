@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="slides-format" content="viewport">
+    <title>Laboratorio de Investigación Tecnologías Ubicuas · ESPE</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300..700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style type="text/tailwindcss">
+        @theme {
+            --color-bg: #071a0a;
+            --color-bg-deep: #030e05;
+            --color-surface: #0d2b11;
+            --color-text: #e8f5e9;
+            --color-text-secondary: #a5d6a7;
+            --color-text-muted: #66bb6a;
+            --color-accent-1: #22c55e;
+            --color-accent-2: #86efac;
+            --color-accent-3: #fbbf24;
+            --color-glass-bg: rgba(255,255,255,0.05);
+            --color-glass-border: rgba(255,255,255,0.09);
+            --color-vignette: rgba(0,0,0,0.45);
+            --font-display: "Instrument Serif", Georgia, serif;
+            --font-body: "DM Sans", system-ui, sans-serif;
+        }
+    </style>
+
+    <style>
+        :root {
+            --color-bg: #071a0a;
+            --color-text: #e8f5e9;
+            --glow-color-rgb: 34,197,94;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { background: var(--color-bg); margin: 0; }
+        body { font-family: "DM Sans", system-ui, sans-serif; color: var(--color-text); overflow: hidden; height: 100vh; width: 100vw; }
+        .deck { width: 100vw; height: 100vh; position: relative; }
+        .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--color-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(0.95); transition: opacity 0.7s ease, transform 0.7s ease; pointer-events: none; overflow: hidden; }
+        .slide.active { opacity: 1; transform: scale(1); pointer-events: all; }
+        .slide > .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: clamp(1.5rem, 4vw, 3.5rem); }
+        .nav-controls { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; z-index: 100; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); padding: 10px 24px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.09); }
+        .nav-btn { width: 38px; height: 38px; border: none; background: rgba(255,255,255,0.06); color: #22c55e; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.3s; }
+        .nav-btn:hover { background: rgba(34,197,94,0.15); }
+        .slide-dots { display: flex; gap: 7px; }
+        .slide-dots .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.12); cursor: pointer; transition: background 0.3s, transform 0.3s; }
+        .slide-dots .dot.active { background: #22c55e; transform: scale(1.35); }
+        .slide-counter { font-size: 0.78rem; color: #66bb6a; min-width: 38px; text-align: center; }
+        .reveal { opacity: 0; transform: translateY(20px); }
+
+        .text-glow { text-shadow: 0 0 20px rgba(34,197,94,0.5), 0 0 40px rgba(34,197,94,0.2); }
+        .stat-glow { text-shadow: 0 0 30px rgba(34,197,94,0.6), 0 0 60px rgba(34,197,94,0.25); }
+        @keyframes glow-pulse {
+            0%, 100% { text-shadow: 0 0 20px rgba(34,197,94,0.5), 0 0 40px rgba(34,197,94,0.2); }
+            50% { text-shadow: 0 0 30px rgba(34,197,94,0.8), 0 0 60px rgba(34,197,94,0.3); }
+        }
+        .glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+
+        @keyframes float-slow {
+            0% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(60px, -50px) scale(1.12); }
+            50% { transform: translate(-40px, 40px) scale(0.9); }
+            75% { transform: translate(50px, 20px) scale(1.08); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        @keyframes float-drift {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            33% { transform: translate(-50px, -60px) scale(1.15) rotate(3deg); }
+            66% { transform: translate(40px, 30px) scale(0.88) rotate(-2deg); }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        .gradient-mesh { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(80px); animation: float-slow 10s ease-in-out infinite; }
+        .blob:nth-child(2) { animation: float-drift 14s ease-in-out infinite; }
+        .blob:nth-child(3) { animation: float-slow 18s ease-in-out infinite reverse; }
+
+        .slide::before {
+            content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            background-repeat: repeat; background-size: 256px 256px; opacity: 0.03; mix-blend-mode: overlay;
+        }
+        .slide::after {
+            content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 50%, var(--color-vignette) 100%);
+        }
+
+        /* Horizontal bars */
+        .bar-track { background: rgba(255,255,255,0.07); border-radius: 6px; height: 26px; position: relative; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 6px; width: 0%; transition: width 0.7s ease; background: linear-gradient(90deg, #22c55e, #86efac); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.75rem; font-weight: 600; color: #071a0a; }
+
+        /* Tag badge */
+        .tag { display: inline-block; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; padding: 2px 9px; border-radius: 20px; text-transform: uppercase; }
+        .tag-green { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .tag-amber { background: rgba(251,191,36,0.18); color: #fde68a; border: 1px solid rgba(251,191,36,0.3); }
+        .tag-blue { background: rgba(96,165,250,0.15); color: #93c5fd; border: 1px solid rgba(96,165,250,0.25); }
+        .tag-red { background: rgba(248,113,113,0.15); color: #fca5a5; border: 1px solid rgba(248,113,113,0.25); }
+
+        /* Article status card */
+        .article-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 12px; border-radius: 9px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem; color: #a5d6a7; line-height: 1.4; }
+        .article-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+        .dot-green { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+        .dot-amber { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.6); }
+        .dot-blue { background: #60a5fa; box-shadow: 0 0 6px rgba(96,165,250,0.6); }
+        .dot-gray { background: #6b7280; }
+
+        /* Glass card */
+        .glass-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; padding: 1.4rem; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .glass-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(34,197,94,0.12); }
+
+        /* Deco shape parallax */
+        .deco-shape { position: absolute; pointer-events: none; opacity: 0.06; border-radius: 50%; will-change: transform; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="mouse-spotlight" style="position:fixed;inset:0;z-index:99;pointer-events:none;"></div>
+
+<div class="deck">
+
+    <!-- SLIDE 1: PORTADA -->
+    <div class="slide slide-1 active" data-slide="1">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:520px;height:520px;top:-120px;right:-80px;background:var(--color-accent-1);opacity:0.14;"></div>
+            <div class="blob" style="width:340px;height:340px;bottom:-80px;left:-60px;background:var(--color-accent-2);opacity:0.1;"></div>
+            <div class="blob" style="width:220px;height:220px;top:45%;left:12%;background:var(--color-accent-3);opacity:0.08;"></div>
+        </div>
+        <canvas class="particle-canvas" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content text-center">
+            <div style="font-size:5rem;margin-bottom:0.6rem;animation:float 3.5s ease-in-out infinite;" class="reveal">🔬</div>
+            <div class="reveal" style="font-size:0.78rem;letter-spacing:0.18em;text-transform:uppercase;color:#66bb6a;margin-bottom:1rem;font-weight:500;">Universidad de las Fuerzas Armadas — ESPE</div>
+            <h1 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(2.2rem,5.5vw,4rem);font-weight:700;background:linear-gradient(135deg,#22c55e,#86efac,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.15;margin-bottom:1rem;">Laboratorio de Investigación<br>Tecnologías Ubicuas y Cuánticas</h1>
+            <p class="reveal" style="font-size:clamp(0.85rem,1.4vw,1.1rem);color:#66bb6a;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:1.6rem;">Bloque H · Cuarto Piso · H-405 · 2025–2026</p>
+            <div class="reveal" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <span class="tag tag-green">IoT &amp; Computación Ubicua</span>
+                <span class="tag tag-amber">IA Aplicada</span>
+                <span class="tag tag-blue">HCI &amp; Realidad Inmersiva</span>
+                <span class="tag tag-green">GeoAI</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 2: EQUIPO DOCENTE -->
+    <div class="slide slide-2" data-slide="2">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:380px;height:380px;top:-90px;right:-60px;background:var(--color-accent-1);opacity:0.09;"></div>
+            <div class="blob" style="width:260px;height:260px;bottom:-60px;left:-40px;background:var(--color-accent-3);opacity:0.07;"></div>
+        </div>
+        <div class="deco-shape" data-speed="0.03" style="width:300px;height:300px;top:10%;left:-5%;background:var(--color-accent-1);"></div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Equipo Investigador</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.8rem,3.8vw,2.8rem);font-weight:700;margin-bottom:1.6rem;color:#e8f5e9;">Docentes Investigadores</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+                <div class="glass-card" style="border-left:3px solid #22c55e;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;">👩‍🔬</div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#e8f5e9;margin-bottom:2px;">Ing. Tatiana Gualotuña</div>
+                    <div style="font-size:0.72rem;color:#66bb6a;">PhD. · Directora</div>
+                </div>
+                <div class="glass-card" style="border-left:3px solid #86efac;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;">👨‍🔬</div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#e8f5e9;margin-bottom:2px;">Ing. Diego Marcillo</div>
+                    <div style="font-size:0.72rem;color:#66bb6a;">PhD.</div>
+                </div>
+                <div class="glass-card" style="border-left:3px solid #fbbf24;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;">👨‍💻</div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#e8f5e9;margin-bottom:2px;">Ing. Danilo Martínez</div>
+                    <div style="font-size:0.72rem;color:#66bb6a;">PhD.</div>
+                </div>
+                <div class="glass-card" style="border-left:3px solid #22c55e;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;">👨‍🏫</div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#e8f5e9;margin-bottom:2px;">Ing. Marcelo Rea</div>
+                    <div style="font-size:0.72rem;color:#66bb6a;">PhD.</div>
+                </div>
+                <div class="glass-card" style="border-left:3px solid #86efac;">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;">🔐</div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#e8f5e9;margin-bottom:2px;">Ing. Geovanny Cudco</div>
+                    <div style="font-size:0.72rem;color:#66bb6a;">MsC. · Seguridad SW</div>
+                </div>
+                <div class="glass-card" style="background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);">
+                    <div style="font-size:1.8rem;margin-bottom:0.5rem;">📍</div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#86efac;margin-bottom:2px;">Sede Matriz</div>
+                    <div style="font-size:0.72rem;color:#66bb6a;">Bloque H · H-405 · 4to Piso</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 3: ÁREAS DE INVESTIGACIÓN -->
+    <div class="slide slide-3" data-slide="3">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:400px;height:400px;top:-100px;left:-60px;background:var(--color-accent-1);opacity:0.1;"></div>
+            <div class="blob" style="width:280px;height:280px;bottom:-60px;right:-40px;background:var(--color-accent-2);opacity:0.08;"></div>
+        </div>
+        <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Líneas de Investigación</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.8rem,3.8vw,2.6rem);font-weight:700;margin-bottom:1.4rem;color:#e8f5e9;">Áreas de Investigación &amp; Desarrollo</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+                <div class="glass-card" style="border-top:2px solid #22c55e;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:1.5rem;">🌐</span>
+                        <span style="font-weight:600;font-size:0.9rem;color:#86efac;">Computación Ubicua e IoT</span>
+                    </div>
+                    <p style="font-size:0.75rem;color:#a5d6a7;line-height:1.5;margin:0;">IoT · Sensores y actuadores · Redes inalámbricas · Dispositivos inteligentes · Automatización del hogar</p>
+                </div>
+                <div class="glass-card" style="border-top:2px solid #fbbf24;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:1.5rem;">🤖</span>
+                        <span style="font-weight:600;font-size:0.9rem;color:#fde68a;">IA en Entornos Físico-Digitales</span>
+                    </div>
+                    <p style="font-size:0.75rem;color:#a5d6a7;line-height:1.5;margin:0;">Reconocimiento facial y de voz · Asistentes virtuales · Sistemas de automatización inteligente</p>
+                </div>
+                <div class="glass-card" style="border-top:2px solid #86efac;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:1.5rem;">🥽</span>
+                        <span style="font-weight:600;font-size:0.9rem;color:#86efac;">HCI y Experiencia Inmersiva</span>
+                    </div>
+                    <p style="font-size:0.75rem;color:#a5d6a7;line-height:1.5;margin:0;">HCI · Realidad aumentada y virtual · Wearables · Interacción humano-computadora</p>
+                </div>
+                <div class="glass-card" style="border-top:2px solid #60a5fa;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:1.5rem;">🗺️</span>
+                        <span style="font-weight:600;font-size:0.9rem;color:#93c5fd;">GeoAI y Sistemas Geoespaciales</span>
+                    </div>
+                    <p style="font-size:0.75rem;color:#a5d6a7;line-height:1.5;margin:0;">Sistemas geoespaciales inteligentes · Navegación y seguimiento · Análisis Ambiental</p>
+                </div>
+                <div class="glass-card" style="grid-column:span 2;border-top:2px solid #c084fc;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:1.5rem;">🧠</span>
+                        <span style="font-weight:600;font-size:0.9rem;color:#e9d5ff;">IA Aplicada a Gestión del Conocimiento</span>
+                    </div>
+                    <p style="font-size:0.75rem;color:#a5d6a7;line-height:1.5;margin:0;">RAG · Agentes Inteligentes · TRL · Transferencia Tecnológica · Vigilancia Tecnológica</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 4: TRABAJOS DE INTEGRACIÓN CURRICULAR -->
+    <div class="slide slide-4" data-slide="4">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:350px;height:350px;top:-80px;right:-70px;background:var(--color-accent-1);opacity:0.09;"></div>
+            <div class="blob" style="width:230px;height:230px;bottom:-50px;left:-40px;background:var(--color-accent-3);opacity:0.07;"></div>
+        </div>
+        <div class="deco-shape" data-speed="0.025" style="width:250px;height:250px;bottom:5%;right:8%;background:var(--color-accent-2);"></div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Producción Académica</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.8rem,3.8vw,2.8rem);font-weight:700;margin-bottom:1.4rem;color:#e8f5e9;">Dirección de Trabajos de Integración Curricular</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:1.4rem;">
+                <div class="glass-card" style="text-align:center;">
+                    <div class="stat-glow glow-pulse" style="font-size:3rem;font-weight:800;font-family:'Instrument Serif',Georgia,serif;color:#22c55e;" data-count="9">0</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#86efac;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">PAO 202550</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Trabajos dirigidos</div>
+                </div>
+                <div class="glass-card" style="text-align:center;border:1px solid rgba(34,197,94,0.3);">
+                    <div class="stat-glow glow-pulse" style="font-size:3rem;font-weight:800;font-family:'Instrument Serif',Georgia,serif;color:#22c55e;" data-count="13">0</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#86efac;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">PAO 202551</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Trabajos dirigidos · máximo</div>
+                </div>
+                <div class="glass-card" style="text-align:center;">
+                    <div class="stat-glow glow-pulse" style="font-size:3rem;font-weight:800;font-family:'Instrument Serif',Georgia,serif;color:#22c55e;" data-count="9">0</div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#86efac;letter-spacing:0.08em;text-transform:uppercase;margin-top:4px;">PAO 202650</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Trabajos dirigidos</div>
+                </div>
+            </div>
+            <div class="reveal glass-card" style="display:flex;align-items:center;gap:16px;">
+                <span style="font-size:2rem;">📊</span>
+                <div>
+                    <div style="font-weight:600;font-size:0.9rem;color:#86efac;margin-bottom:3px;">Total acumulado: 31 Trabajos de Integración Curricular</div>
+                    <div style="font-size:0.75rem;color:#a5d6a7;">El laboratorio consolida su rol como referente en la dirección de investigación aplicada en la ESPE, impulsando generaciones de nuevos investigadores.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 5: ARTÍCULOS PUBLICADOS Y APROBADOS -->
+    <div class="slide slide-5" data-slide="5">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:360px;height:360px;top:-90px;left:-60px;background:var(--color-accent-1);opacity:0.09;"></div>
+            <div class="blob" style="width:240px;height:240px;bottom:-50px;right:-40px;background:var(--color-accent-2);opacity:0.07;"></div>
+        </div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Producción Científica 2025–2026</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.6rem,3.5vw,2.5rem);font-weight:700;margin-bottom:1.2rem;color:#e8f5e9;">Artículos Científicos · Publicados &amp; Aprobados</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                    <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:#22c55e;margin-bottom:8px;font-weight:600;">✅ Publicados</div>
+                    <div style="display:flex;flex-direction:column;gap:7px;">
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>Integration of emerging technologies with IoT for Industry 4.0: a systematic literature review</span></div>
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>MobileTestPro: Testing Framework for Mobile Application</span></div>
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>Gamification Methodologies and Their Technological Application in Higher Education: A Systematic Literature Review</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px;font-weight:600;">🏆 Aprobados</div>
+                    <div style="display:flex;flex-direction:column;gap:7px;">
+                        <div class="article-row"><span class="article-dot dot-amber"></span><span>AI-Driven IP Address Conflict Prevention: A Predictive and Heuristic-Based VRF Framework</span></div>
+                        <div class="article-row"><span class="article-dot dot-amber"></span><span>Facial Recognition Technologies as Tools for Educational Inclusion: A Systematic Review</span></div>
+                        <div class="article-row"><span class="article-dot dot-amber"></span><span>From Signs to Systems: A Semiotic Approach to Healthcare Interface Effectiveness</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 6: ARTÍCULOS EN REVISIÓN Y PROPUESTOS -->
+    <div class="slide slide-6" data-slide="6">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:360px;height:360px;top:-80px;right:-60px;background:var(--color-accent-3);opacity:0.08;"></div>
+            <div class="blob" style="width:240px;height:240px;bottom:-50px;left:-40px;background:var(--color-accent-1);opacity:0.07;"></div>
+        </div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Producción Científica 2025–2026</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.6rem,3.5vw,2.5rem);font-weight:700;margin-bottom:1.2rem;color:#e8f5e9;">Artículos · En Revisión &amp; Propuestos</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                    <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:#60a5fa;margin-bottom:8px;font-weight:600;">🔍 En Revisión</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>Semiotic Principles in User Interface Design: A Systematic Mapping Study</span></div>
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>IndiGeo: An Open-Source Geospatial Platform for Multi-Indicator SDG 15 Monitoring in Ecuador</span></div>
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>EdTech para la terapia del habla en niños con Síndrome de Down en Latinoamérica</span></div>
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>Swarm Algorithms for UAV Path Planning: A Systematic Review</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:#a78bfa;margin-bottom:8px;font-weight:600;">💡 Propuestos</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <div class="article-row"><span class="article-dot dot-gray"></span><span>MobileTestPro: A real world evaluation</span></div>
+                        <div class="article-row"><span class="article-dot dot-gray"></span><span>Quantum Cryptanalysis Applied to IoT Security: Hardening Framework</span></div>
+                        <div class="article-row"><span class="article-dot dot-gray"></span><span>Secure biometric authentication microservice: CNN + STRIDE + automated security testing</span></div>
+                        <div class="article-row"><span class="article-dot dot-gray"></span><span>Usability Fusion: Integrating usability activities into Software Project Development</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 7: PROYECTOS -->
+    <div class="slide slide-7" data-slide="7">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:400px;height:400px;top:-100px;left:-70px;background:var(--color-accent-1);opacity:0.1;"></div>
+            <div class="blob" style="width:260px;height:260px;bottom:-60px;right:-40px;background:var(--color-accent-3);opacity:0.08;"></div>
+        </div>
+        <div class="deco-shape" data-speed="0.03" style="width:200px;height:200px;top:15%;right:5%;background:var(--color-accent-1);"></div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Portafolio de Proyectos</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.8rem,3.8vw,2.6rem);font-weight:700;margin-bottom:1.4rem;color:#e8f5e9;">Proyectos de Investigación</h2>
+            <div class="reveal glass-card" style="border-left:4px solid #22c55e;margin-bottom:12px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                    <div>
+                        <div style="font-size:0.72rem;color:#66bb6a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Externo · CEDIA</div>
+                        <div style="font-weight:600;font-size:0.9rem;color:#e8f5e9;line-height:1.4;">Sistema inteligente de gestión del conocimiento basado en el mapeo de la producción científica y la vigilancia tecnológica de IES para la visualización estratégica de la investigación en universidades públicas ecuatorianas</div>
+                    </div>
+                    <span class="tag tag-green" style="flex-shrink:0;">En ejecución</span>
+                </div>
+            </div>
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px;font-weight:600;">📋 Proyectos Propuestos</div>
+            <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="glass-card" style="font-size:0.75rem;">
+                    <div style="color:#fde68a;font-weight:600;margin-bottom:3px;">Iniciación Científica</div>
+                    <div style="color:#a5d6a7;">Detección temprana de dislexia y disgrafía mediante Visión por Computadora</div>
+                </div>
+                <div class="glass-card" style="font-size:0.75rem;">
+                    <div style="color:#fde68a;font-weight:600;margin-bottom:3px;">Interno sin financiamiento</div>
+                    <div style="color:#a5d6a7;">Marco de Desviación Positiva para Reducir Deserción y Mejorar Rendimiento Académico en la ESPE</div>
+                </div>
+                <div class="glass-card" style="grid-column:span 2;font-size:0.75rem;">
+                    <div style="color:#fde68a;font-weight:600;margin-bottom:3px;">CEDIA</div>
+                    <div style="color:#a5d6a7;">Plataforma integrada de monitoreo geoespacial y recomendación biotecnológica para gestión de cadmio en suelos agrícolas volcánicos del Ecuador</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 8: PROYECCIÓN ESTRATÉGICA – ALIANZAS -->
+    <div class="slide slide-8" data-slide="8">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:380px;height:380px;top:-90px;right:-60px;background:var(--color-accent-1);opacity:0.1;"></div>
+            <div class="blob" style="width:260px;height:260px;bottom:-60px;left:-40px;background:var(--color-accent-3);opacity:0.07;"></div>
+        </div>
+        <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Proyección Estratégica</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.8rem,3.8vw,2.6rem);font-weight:700;margin-bottom:1.4rem;color:#e8f5e9;">Alianzas para el Desarrollo Tecnológico</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
+                <div class="glass-card" style="text-align:center;border-top:2px solid #22c55e;">
+                    <div style="font-size:1.8rem;margin-bottom:6px;">🛡️</div>
+                    <div style="font-weight:600;font-size:0.82rem;color:#86efac;">Palo Alto Networks</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:3px;">Ciberseguridad + IoT</div>
+                </div>
+                <div class="glass-card" style="text-align:center;border-top:2px solid #fbbf24;">
+                    <div style="font-size:1.8rem;margin-bottom:6px;">☁️</div>
+                    <div style="font-weight:600;font-size:0.82rem;color:#fde68a;">AWS Academy</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:3px;">Cloud + IA + HPC</div>
+                </div>
+                <div class="glass-card" style="text-align:center;border-top:2px solid #86efac;">
+                    <div style="font-size:1.8rem;margin-bottom:6px;">🏭</div>
+                    <div style="font-weight:600;font-size:0.82rem;color:#86efac;">Grupo Radical</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:3px;">Industria local</div>
+                </div>
+                <div class="glass-card" style="text-align:center;border-top:2px solid #60a5fa;">
+                    <div style="font-size:1.8rem;margin-bottom:6px;">📡</div>
+                    <div style="font-weight:600;font-size:0.82rem;color:#93c5fd;">Fibramax</div>
+                    <div style="font-size:0.68rem;color:#66bb6a;margin-top:3px;">Conectividad</div>
+                </div>
+            </div>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:10px;border-radius:10px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.12);">
+                    <div style="font-size:1.3rem;flex-shrink:0;">01</div>
+                    <div><div style="font-weight:600;font-size:0.78rem;color:#86efac;">Mapeo de Actores</div><div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Identificar socios en industria, academia y sector público</div></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:10px;border-radius:10px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.12);">
+                    <div style="font-size:1.3rem;flex-shrink:0;">02</div>
+                    <div><div style="font-weight:600;font-size:0.78rem;color:#86efac;">Vinculación</div><div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Convenios, cartas de intención y proyectos piloto</div></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:10px;border-radius:10px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.12);">
+                    <div style="font-size:1.3rem;flex-shrink:0;">03</div>
+                    <div><div style="font-weight:600;font-size:0.78rem;color:#86efac;">Co-desarrollo</div><div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Proyectos conjuntos con transferencia tecnológica e IA</div></div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:10px;border-radius:10px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.12);">
+                    <div style="font-size:1.3rem;flex-shrink:0;">04</div>
+                    <div><div style="font-weight:600;font-size:0.78rem;color:#86efac;">Escalamiento</div><div style="font-size:0.68rem;color:#66bb6a;margin-top:2px;">Publicaciones, patentes y productos de posicionamiento</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 9: REQUERIMIENTOS HARDWARE -->
+    <div class="slide slide-9" data-slide="9">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:360px;height:360px;top:-80px;right:-60px;background:var(--color-accent-3);opacity:0.09;"></div>
+            <div class="blob" style="width:240px;height:240px;bottom:-50px;left:-40px;background:var(--color-accent-1);opacity:0.07;"></div>
+        </div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Requerimientos del Laboratorio</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.6rem,3.5vw,2.4rem);font-weight:700;margin-bottom:1.2rem;color:#e8f5e9;">Hardware &amp; Equipamiento · $52,019</h2>
+            <div class="reveal" style="display:flex;flex-direction:column;gap:7px;">
+                <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                    <div>
+                        <div style="font-size:0.78rem;color:#e8f5e9;font-weight:500;">Computadoras Workstation × 4 (Ultra9 · 64GB DDR5 · SSD 1TB · RTX Ada 32GB)</div>
+                        <div class="bar-track" style="margin-top:4px;"><div class="bar-fill" data-width="95">$18.000</div></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                    <div>
+                        <div style="font-size:0.78rem;color:#e8f5e9;font-weight:500;">Kit Microcontrolador Tipo 1</div>
+                        <div class="bar-track" style="margin-top:4px;"><div class="bar-fill" data-width="26">$4.899</div></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                    <div>
+                        <div style="font-size:0.78rem;color:#e8f5e9;font-weight:500;">Sensores esenciales: 4× Arduino Starter Kit Classroom Pack</div>
+                        <div class="bar-track" style="margin-top:4px;"><div class="bar-fill" data-width="17">$3.158</div></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                    <div>
+                        <div style="font-size:0.78rem;color:#e8f5e9;font-weight:500;">2× Drones Tipo 1 (Fabricación, comunicación y soporte)</div>
+                        <div class="bar-track" style="margin-top:4px;"><div class="bar-fill" data-width="67">$12.671</div></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                    <div>
+                        <div style="font-size:0.78rem;color:#e8f5e9;font-weight:500;">CrowPi3 × 4 · CrowPi2 × 4</div>
+                        <div class="bar-track" style="margin-top:4px;"><div class="bar-fill" data-width="17">$3.237</div></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                    <div>
+                        <div style="font-size:0.78rem;color:#e8f5e9;font-weight:500;">Apple Studio Display × 2 · Aparato registrador de datos × 4</div>
+                        <div class="bar-track" style="margin-top:4px;"><div class="bar-fill" data-width="29">$5.696</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="reveal" style="margin-top:12px;padding:10px 16px;border-radius:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.8rem;font-weight:600;color:#86efac;">💻 TOTAL HARDWARE</span>
+                <span style="font-size:1.2rem;font-weight:800;color:#22c55e;" class="stat-glow">$52,019.10</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 10: REQUERIMIENTOS SOFTWARE -->
+    <div class="slide slide-10" data-slide="10">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:360px;height:360px;top:-80px;left:-60px;background:var(--color-accent-1);opacity:0.09;"></div>
+            <div class="blob" style="width:240px;height:240px;bottom:-50px;right:-40px;background:var(--color-accent-2);opacity:0.07;"></div>
+        </div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Requerimientos del Laboratorio</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.6rem,3.5vw,2.4rem);font-weight:700;margin-bottom:1.2rem;color:#e8f5e9;">Software, Plataformas &amp; Mobiliario · $20,910</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+                <div>
+                    <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:#22c55e;margin-bottom:7px;font-weight:700;">🖥 Lenguajes &amp; Frameworks</div>
+                    <div style="display:flex;flex-direction:column;gap:5px;">
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>Android Studio</span></div>
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>Jetson JetPack SDK (TensorRT · CUDA)</span></div>
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>Unity Education / Grant</span></div>
+                        <div class="article-row"><span class="article-dot dot-green"></span><span>Base de Datos Nube</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:7px;font-weight:700;">☁️ Plataformas IoT &amp; BD</div>
+                    <div style="display:flex;flex-direction:column;gap:5px;">
+                        <div class="article-row"><span class="article-dot dot-amber"></span><span>GitHub Education</span></div>
+                        <div class="article-row"><span class="article-dot dot-amber"></span><span>Google Colab · Kaggle · HuggingFace</span></div>
+                        <div class="article-row"><span class="article-dot dot-amber"></span><span>Frameworks de aprendizaje profundo</span></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:#60a5fa;margin-bottom:7px;font-weight:700;">🪑 Diseño &amp; Mobiliario</div>
+                    <div style="display:flex;flex-direction:column;gap:5px;">
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>Axure · Balsamiq</span></div>
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>5 sillones Qhapax · 5 escritorios L</span></div>
+                        <div class="article-row"><span class="article-dot dot-blue"></span><span>Armarios · 3 mesas rectangulares</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="reveal" style="margin-top:12px;padding:10px 16px;border-radius:10px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.8rem;font-weight:600;color:#fde68a;">📦 TOTAL SOFTWARE + MOBILIARIO</span>
+                <span style="font-size:1.2rem;font-weight:800;color:#fbbf24;">$20,910.00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 11: NECESIDADES ESTRATÉGICAS -->
+    <div class="slide slide-11" data-slide="11">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:420px;height:420px;top:-100px;right:-70px;background:var(--color-accent-3);opacity:0.1;"></div>
+            <div class="blob" style="width:280px;height:280px;bottom:-70px;left:-50px;background:var(--color-accent-1);opacity:0.09;"></div>
+            <div class="blob" style="width:200px;height:200px;top:40%;left:30%;background:var(--color-accent-2);opacity:0.06;"></div>
+        </div>
+        <div class="deco-shape" data-speed="0.03" style="width:220px;height:220px;top:8%;left:5%;background:var(--color-accent-3);"></div>
+        <div class="content">
+            <div class="reveal" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:#66bb6a;margin-bottom:0.5rem;">Infraestructura Crítica · 2026–2027</div>
+            <h2 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(1.8rem,3.8vw,2.6rem);font-weight:700;margin-bottom:1.4rem;color:#e8f5e9;">Necesidades Estratégicas</h2>
+            <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="glass-card" style="border:1px solid rgba(251,191,36,0.3);border-top:3px solid #fbbf24;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                        <span style="font-size:2rem;">⚡</span>
+                        <div>
+                            <div style="font-weight:700;font-size:0.95rem;color:#fde68a;">NVIDIA DGX Spark</div>
+                            <div style="font-size:0.68rem;color:#66bb6a;">Supercomputador personal Grace Blackwell</div>
+                        </div>
+                        <span class="tag tag-amber" style="margin-left:auto;flex-shrink:0;">PRIORIDAD #1</span>
+                    </div>
+                    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px;font-size:0.75rem;color:#a5d6a7;">
+                        <li>🔷 GB10 Grace Blackwell Superchip</li>
+                        <li>🔷 128 GB memoria unificada LPDDR5X</li>
+                        <li>🔷 1 PetaFLOP FP8 de potencia IA</li>
+                        <li>🔷 NVLink-C2C · hasta 5 TB/s ancho de banda</li>
+                        <li>🔷 Ideal para inferencia LLM local + GeoAI</li>
+                    </ul>
+                    <div style="margin-top:10px;padding:6px 10px;border-radius:8px;background:rgba(251,191,36,0.1);font-size:0.7rem;color:#fde68a;"><strong>Justificación:</strong> Lab cuenta con Starlink propio. Elimina dependencia del HPC de CEDIA.</div>
+                    <div style="margin-top:8px;font-size:1.1rem;font-weight:800;color:#fbbf24;" class="stat-glow">~$5,000</div>
+                </div>
+                <div class="glass-card" style="border:1px solid rgba(34,197,94,0.25);border-top:3px solid #22c55e;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                        <span style="font-size:2rem;">🖥️</span>
+                        <div>
+                            <div style="font-weight:700;font-size:0.95rem;color:#86efac;">Workstation Ryzen 9 7950X + RTX 4090</div>
+                            <div style="font-size:0.68rem;color:#66bb6a;">Procesamiento ETL, Geoespacial, HCI y VMs</div>
+                        </div>
+                    </div>
+                    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px;font-size:0.75rem;color:#a5d6a7;">
+                        <li>🔹 AMD Ryzen 9 7950X (16c/32t)</li>
+                        <li>🔹 ASUS ProArt X670E-CREATOR WiFi 10 GbE</li>
+                        <li>🔹 128 GB DDR5 EXPO</li>
+                        <li>🔹 RTX 4090 24 GB (GPU local p/IA)</li>
+                        <li>🔹 2 TB + 4 TB NVMe PCIe 4.0</li>
+                        <li>🔹 Lian Li Galahad II 360 AIO</li>
+                    </ul>
+                    <div style="margin-top:8px;font-size:1.1rem;font-weight:800;color:#22c55e;" class="stat-glow">~$5,500</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLIDE 12: CIERRE -->
+    <div class="slide slide-12" data-slide="12">
+        <div class="gradient-mesh">
+            <div class="blob" style="width:500px;height:500px;top:-120px;right:-80px;background:var(--color-accent-1);opacity:0.15;"></div>
+            <div class="blob" style="width:320px;height:320px;bottom:-80px;left:-60px;background:var(--color-accent-2);opacity:0.12;"></div>
+            <div class="blob" style="width:220px;height:220px;top:40%;left:15%;background:var(--color-accent-3);opacity:0.09;"></div>
+        </div>
+        <canvas class="particle-canvas" style="position:absolute;inset:0;z-index:1;"></canvas>
+        <div class="content text-center">
+            <div style="font-size:5rem;margin-bottom:0.6rem;animation:float 3.5s ease-in-out infinite;" class="reveal">🚀</div>
+            <h1 class="reveal" style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(2.5rem,6vw,4.5rem);font-weight:700;background:linear-gradient(135deg,#22c55e,#86efac,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1rem;">¡Muchas Gracias!</h1>
+            <p class="reveal" style="font-size:clamp(0.9rem,1.5vw,1.2rem);color:#66bb6a;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:1.6rem;">Laboratorio de Investigación de Tecnologías Ubicuas y Cuánticas · ESPE</p>
+            <div class="reveal" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:1rem;">
+                <div class="glass-card" style="text-align:center;padding:1rem 0.8rem;">
+                    <div style="font-size:1.6rem;margin-bottom:4px;">📄</div>
+                    <div style="font-size:0.7rem;font-weight:600;color:#86efac;">6 Artículos</div>
+                    <div style="font-size:0.62rem;color:#66bb6a;">Publicados/Aprobados</div>
+                </div>
+                <div class="glass-card" style="text-align:center;padding:1rem 0.8rem;">
+                    <div style="font-size:1.6rem;margin-bottom:4px;">🎓</div>
+                    <div style="font-size:0.7rem;font-weight:600;color:#86efac;">31 TICs</div>
+                    <div style="font-size:0.62rem;color:#66bb6a;">Trabajos dirigidos</div>
+                </div>
+                <div class="glass-card" style="text-align:center;padding:1rem 0.8rem;">
+                    <div style="font-size:1.6rem;margin-bottom:4px;">🤝</div>
+                    <div style="font-size:0.7rem;font-weight:600;color:#86efac;">4 Alianzas</div>
+                    <div style="font-size:0.62rem;color:#66bb6a;">Socios estratégicos</div>
+                </div>
+                <div class="glass-card" style="text-align:center;padding:1rem 0.8rem;">
+                    <div style="font-size:1.6rem;margin-bottom:4px;">💻</div>
+                    <div style="font-size:0.7rem;font-weight:600;color:#86efac;">$72,929</div>
+                    <div style="font-size:0.62rem;color:#66bb6a;">Inversión propuesta</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- NAVEGACIÓN -->
+<div class="nav-controls">
+    <button class="nav-btn" onclick="changeSlide(-1)">&#8249;</button>
+    <div class="slide-dots" id="dots"></div>
+    <button class="nav-btn" onclick="changeSlide(1)">&#8250;</button>
+    <span class="slide-counter" id="counter">1 / 12</span>
+</div>
+
+<script>
+    let current = 1;
+    const total = document.querySelectorAll(".slide").length;
+    const dotsContainer = document.getElementById("dots");
+    const counter = document.getElementById("counter");
+    for (let i = 1; i <= total; i++) {
+        const dot = document.createElement("div");
+        dot.className = "dot" + (i === 1 ? " active" : "");
+        dot.onclick = () => goToSlide(i);
+        dotsContainer.appendChild(dot);
+    }
+    function goToSlide(n) {
+        const prev = document.querySelector(".slide.active");
+        const next = document.querySelector('.slide[data-slide="' + n + '"]');
+        if (prev) prev.classList.remove("active");
+        if (next) { next.classList.add("active"); animateSlide(next); }
+        current = n; updateNav();
+    }
+    function changeSlide(dir) { let next = current + dir; if (next < 1) next = total; if (next > total) next = 1; goToSlide(next); }
+    function updateNav() { document.querySelectorAll(".dot").forEach((d, i) => { d.classList.toggle("active", i + 1 === current); }); counter.textContent = current + " / " + total; }
+    document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); changeSlide(1); } if (e.key === "ArrowLeft") { e.preventDefault(); changeSlide(-1); } });
+    let touchStartX = 0;
+    document.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; });
+    document.addEventListener("touchend", (e) => { const diff = touchStartX - e.changedTouches[0].clientX; if (Math.abs(diff) > 50) changeSlide(diff > 0 ? 1 : -1); });
+
+    function animateSlide(slide) {
+        slide.querySelectorAll(".reveal").forEach((el, i) => {
+            el.style.transition = "none";
+            el.style.opacity = "0";
+            el.style.transform = "translateY(20px)";
+            el.offsetHeight;
+            const delay = i * 0.08;
+            el.style.transition = "opacity 0.35s ease " + delay + "s, transform 0.35s ease " + delay + "s";
+            el.style.opacity = "1";
+            el.style.transform = "translateY(0px)";
+        });
+        animateSlideEffects(slide);
+    }
+
+    function animateSlideEffects(slide) {
+        slide.querySelectorAll("[data-count]:not(.counted)").forEach(el => {
+            el.classList.add("counted");
+            const target = parseInt(el.dataset.count);
+            let cur = 0; const step = target / 40;
+            const timer = setInterval(() => { cur += step; if (cur >= target) { cur = target; clearInterval(timer); } el.textContent = Math.round(cur); }, 30);
+        });
+        slide.querySelectorAll(".bar-fill:not(.fill-init)").forEach((bar, i) => {
+            bar.classList.add("fill-init");
+            bar.style.width = "0%";
+            bar.style.transition = "width 0.6s ease " + (i * 0.09) + "s";
+            bar.offsetHeight;
+            bar.style.width = bar.dataset.width + "%";
+        });
+    }
+
+    document.addEventListener("mousemove", (e) => {
+        const spotlight = document.querySelector(".mouse-spotlight");
+        if (spotlight) {
+            spotlight.style.background = "radial-gradient(600px circle at " + e.clientX + "px " + e.clientY + "px, rgba(34,197,94,0.06), transparent 40%)";
+        }
+    });
+
+    (function() {
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+        document.addEventListener("mousemove", (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+        (function tick() {
+            const ox = (mouseX - cx) / cx, oy = (mouseY - cy) / cy;
+            document.querySelectorAll(".deco-shape").forEach(shape => {
+                const speed = parseFloat(shape.dataset.speed) || 0.03;
+                shape.style.transform = "translate(" + (ox * speed * 100) + "px, " + (oy * speed * 100) + "px)";
+            });
+            requestAnimationFrame(tick);
+        })();
+    })();
+
+    window.initParticles = function(canvas, options) {
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        const interactive = options.interactive !== false;
+        const count = options.count || (interactive ? 55 : 18);
+        let mx = -1000, my = -1000;
+        const particles = Array.from({ length: count }, () => ({
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 2.5 + 0.8, alpha: Math.random() * 0.35 + 0.1
+        }));
+        if (interactive) {
+            canvas.addEventListener("mousemove", (e) => { const rect = canvas.getBoundingClientRect(); mx = e.clientX - rect.left; my = e.clientY - rect.top; });
+            canvas.addEventListener("mouseleave", () => { mx = -1000; my = -1000; });
+        }
+        (function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                if (interactive) { const dx = p.x - mx, dy = p.y - my, dist = Math.sqrt(dx*dx + dy*dy); if (dist < 120) { const force = (120 - dist) / 120 * 2; p.vx += (dx / dist) * force * 0.1; p.vy += (dy / dist) * force * 0.1; } }
+                p.vx *= 0.98; p.vy *= 0.98; p.x += p.vx; p.y += p.vy;
+                if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(34,197,94," + p.alpha + ")"; ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        })();
+    };
+    document.querySelectorAll(".particle-canvas").forEach(c => window.initParticles(c, { interactive: true, count: 55 }));
+    document.querySelectorAll(".particle-canvas-ambient").forEach(c => window.initParticles(c, { interactive: false, count: 18 }));
+
+    try { animateSlide(document.querySelector(".slide.active")); } catch(e) { console.warn(e); }
+</script>
+</body>
+</html>
